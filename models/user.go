@@ -16,4 +16,6 @@ type User struct {
 	Email     string   `json:"email"`
 	Password  string   `json:"-"`
 	Role      RoleType `json:"role"`
+	TenantID  uint
+	Tenant
 }

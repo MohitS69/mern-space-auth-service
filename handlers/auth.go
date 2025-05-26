@@ -19,12 +19,13 @@ import (
 	"gorm.io/gorm"
 )
 
-type UserHandler struct {
+type AuthHandler struct {
 	db *gorm.DB
 }
 
-func SetupUserRoutes(mux *http.ServeMux, db *gorm.DB) {
-	handler := UserHandler{
+func SetupAuthRoutes(db *gorm.DB) *http.ServeMux {
+	mux := http.NewServeMux()
+	handler := AuthHandler{
 		db: db,
 	}
 	authMiddleware := middlewares.AuthMiddleware{
@@ -36,9 +37,10 @@ func SetupUserRoutes(mux *http.ServeMux, db *gorm.DB) {
 	mux.HandleFunc("GET /self", authMiddleware.RequireAuth(handler.self))
 	mux.HandleFunc("GET /refresh", handler.refresh)
 	mux.HandleFunc("GET /logout", handler.logout)
+	return mux
 }
 
-func (u *UserHandler) register(w http.ResponseWriter, r *http.Request) {
+func (u *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 	var payload dto.RegisterUserDto
 	if err := helper.ReadJson(w, r, &payload); err != nil {
 		helper.WriteJsonError(w, http.StatusBadRequest, err.Error())
@@ -48,7 +50,7 @@ func (u *UserHandler) register(w http.ResponseWriter, r *http.Request) {
 		helper.WriteJsonError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	
+
 	config.Config.Logger.Infof("New request to register user with email: %s", payload.Email)
 
 	// Check if user already exists
@@ -97,7 +99,7 @@ func (u *UserHandler) register(w http.ResponseWriter, r *http.Request) {
 
 	// Set cookies
 	u.setCookies(w, accessTokenRaw, refreshTokenRaw)
-	
+
 	config.Config.Logger.Infof("User registered successfully: %s", user.Email)
 	helper.WriteJson(w, http.StatusCreated, map[string]interface{}{
 		"id":        user.ID,
@@ -108,7 +110,7 @@ func (u *UserHandler) register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (u *UserHandler) login(w http.ResponseWriter, r *http.Request) {
+func (u *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	var payload dto.LoginUserDto
 	if err := helper.ReadJson(w, r, &payload); err != nil {
 		helper.WriteJsonError(w, http.StatusBadRequest, err.Error())
@@ -148,7 +150,7 @@ func (u *UserHandler) login(w http.ResponseWriter, r *http.Request) {
 
 	// Set cookies
 	u.setCookies(w, accessTokenRaw, refreshTokenRaw)
-	
+
 	config.Config.Logger.Infof("User logged in successfully: %s", user.Email)
 	helper.WriteJson(w, http.StatusOK, map[string]interface{}{
 		"id":        user.ID,
@@ -159,7 +161,7 @@ func (u *UserHandler) login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (u *UserHandler) self(w http.ResponseWriter, r *http.Request) {
+func (u *AuthHandler) self(w http.ResponseWriter, r *http.Request) {
 	user := middlewares.GetUserFromContext(r.Context())
 	if user == nil {
 		helper.WriteJsonError(w, http.StatusUnauthorized, "user not found")
@@ -174,14 +176,14 @@ func (u *UserHandler) self(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (u *UserHandler) refresh(w http.ResponseWriter, r *http.Request) {
+func (u *AuthHandler) refresh(w http.ResponseWriter, r *http.Request) {
 	refreshTokenFromCookie, err := r.Cookie("refresh_token")
 	if err != nil {
 		helper.WriteJsonError(w, http.StatusUnauthorized, "refresh token not found")
 		return
 	}
 
-	token, err := jwt.Parse([]byte(refreshTokenFromCookie.Value), 
+	token, err := jwt.Parse([]byte(refreshTokenFromCookie.Value),
 		jwt.WithKey(jwa.HS256(), []byte(config.Config.RefreshTokenSecret)), jwt.WithValidate(true))
 	if err != nil {
 		helper.WriteJsonError(w, http.StatusUnauthorized, "invalid refresh token")
@@ -246,13 +248,13 @@ func (u *UserHandler) refresh(w http.ResponseWriter, r *http.Request) {
 
 	// Set cookies
 	u.setCookies(w, accessTokenRaw, refreshTokenRaw)
-	
+
 	helper.WriteJson(w, http.StatusOK, map[string]interface{}{
 		"message": "tokens refreshed successfully",
 	})
 }
 
-func (u *UserHandler) logout(w http.ResponseWriter, r *http.Request) {
+func (u *AuthHandler) logout(w http.ResponseWriter, r *http.Request) {
 	refreshTokenFromCookie, err := r.Cookie("refresh_token")
 	if err != nil {
 		// Even if no cookie, clear cookies anyway
@@ -261,7 +263,7 @@ func (u *UserHandler) logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := jwt.Parse([]byte(refreshTokenFromCookie.Value), 
+	token, err := jwt.Parse([]byte(refreshTokenFromCookie.Value),
 		jwt.WithKey(jwa.HS256(), []byte(config.Config.RefreshTokenSecret)))
 	if err != nil {
 		// Token invalid, still clear cookies
@@ -284,7 +286,7 @@ func (u *UserHandler) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 // Helper function to generate both access and refresh tokens
-func (u *UserHandler) generateTokens(userID uint, email string) ([]byte, []byte, error) {
+func (u *AuthHandler) generateTokens(userID uint, email string) ([]byte, []byte, error) {
 	// Load private key for access token
 	set, err := jwk.ReadFile("certs/private.pem", jwk.WithPEM(true))
 	if err != nil {
@@ -340,7 +342,7 @@ func (u *UserHandler) generateTokens(userID uint, email string) ([]byte, []byte,
 }
 
 // Helper function to set cookies
-func (u *UserHandler) setCookies(w http.ResponseWriter, accessToken, refreshToken []byte) {
+func (u *AuthHandler) setCookies(w http.ResponseWriter, accessToken, refreshToken []byte) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "access_token",
 		Value:    string(accessToken),
@@ -363,7 +365,7 @@ func (u *UserHandler) setCookies(w http.ResponseWriter, accessToken, refreshToke
 }
 
 // Helper function to clear cookies
-func (u *UserHandler) clearCookies(w http.ResponseWriter) {
+func (u *AuthHandler) clearCookies(w http.ResponseWriter) {
 	cookies := []string{"access_token", "refresh_token"}
 	for _, cookieName := range cookies {
 		http.SetCookie(w, &http.Cookie{

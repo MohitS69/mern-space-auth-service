@@ -33,7 +33,10 @@ func main() {
 		fmt.Fprint(w, "Api is healthy")
 	})
 
-	handlers.SetupUserRoutes(mux, db)
+    authRoutes := handlers.SetupAuthRoutes(db)
+    tenantRoutes := handlers.SetupTenantRoutes(db)
+    mux.Handle("/auth/",http.StripPrefix("/auth",authRoutes))
+    mux.Handle("/tenants/",http.StripPrefix("/auth",tenantRoutes))
 
 	func() {
 		config.Config.Logger.Infof("server is running on port %s", config.Config.ServerPort)
