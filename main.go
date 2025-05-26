@@ -13,6 +13,10 @@ import (
 
 func main() {
 	mux := http.NewServeMux()
+	// Serve the "public" directory
+	fs := http.FileServer(http.Dir("public"))
+
+	mux.Handle("/", fs)
 	db, err := gorm.Open(postgres.Open(config.Config.DSN), &gorm.Config{})
 
 	defer config.Config.Logger.Sync()
@@ -25,14 +29,14 @@ func main() {
 		config.Config.Logger.Fatal("error while running migration :%v", err.Error())
 	}
 	config.Config.Logger.Info("migration was successfull")
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Api is healthy")
 	})
 
 	handlers.SetupUserRoutes(mux, db)
 
 	func() {
-		config.Config.Logger.Info("server is runnning on %s\n", config.Config.ServerPort)
+		config.Config.Logger.Infof("server is running on port %s", config.Config.ServerPort)
 	}()
 	http.ListenAndServe(fmt.Sprintf(":%s", config.Config.ServerPort), mux)
 }

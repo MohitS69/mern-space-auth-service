@@ -10,7 +10,7 @@ import (
     "path/filepath"
 )
 
-func main() {
+func GenerateRsaKeys() {
     // Generate a 2048-bit RSA private key
     privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
     if err != nil {

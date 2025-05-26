@@ -13,4 +13,6 @@ logs/
 *.pem
 *.crt
 certs/
+public/.well-known/
+
 

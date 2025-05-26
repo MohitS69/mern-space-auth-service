@@ -2,11 +2,18 @@ package models
 
 import "gorm.io/gorm"
 
+type RoleType string
+
+const (
+	UserRole  RoleType = "user"
+	AdminRole RoleType = "admin"
+)
+
 type User struct {
 	gorm.Model
-	FirstName string
-	LastName  string
-	Email     string
-	Password  string
-	Role      string
+	FirstName string   `json:"first_name"`
+	LastName  string   `json:"last_name"`
+	Email     string   `json:"email"`
+	Password  string   `json:"-"`
+	Role      RoleType `json:"role"`
 }
