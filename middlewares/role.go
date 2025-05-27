@@ -3,6 +3,7 @@ package middlewares
 import (
 	"auth-service/models"
 	"net/http"
+	"slices"
 )
 
 func RequireRole(roles ...models.RoleType) Middleware {
@@ -13,13 +14,7 @@ func RequireRole(roles ...models.RoleType) Middleware {
 				http.Error(w, "Authentication required", http.StatusUnauthorized)
 				return
 			}
-			found := false
-			for _, role := range roles {
-				if user.Role == role {
-					found = true
-					break
-				}
-			}
+			found := slices.Contains(roles, user.Role)
 			if !found {
 				http.Error(w, "Insufficient permissions", http.StatusForbidden)
 				return

@@ -4,6 +4,7 @@ import (
 	"auth-service/config"
 	"auth-service/dto"
 	"auth-service/helper"
+	"auth-service/middlewares"
 	"auth-service/models"
 	"net/http"
 	"strconv"
@@ -20,8 +21,19 @@ func SetupTenantRoutes(db *gorm.DB) *http.ServeMux {
 	handler := TenantHandler{
 		db,
 	}
+	authMiddleware := middlewares.AuthMiddleware{
+		Db: db,
+	}
+	middleware := middlewares.ChainMiddleware(
+		authMiddleware.RequireAuth,
+		middlewares.RequireRole(models.AdminRole),
+	)
+	mux.HandleFunc("GET /", handler.getAll)
 	mux.HandleFunc("POST /", handler.create)
-    return mux
+	mux.HandleFunc("GET /{id}", middleware(handler.getOne))
+	mux.HandleFunc("DELETE /{id}", middleware(handler.delete))
+	mux.HandleFunc("PATCH /{id}", middleware(handler.update))
+	return mux
 }
 
 func (t *TenantHandler) create(w http.ResponseWriter, r *http.Request) {
