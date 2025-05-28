@@ -6,6 +6,7 @@ import (
 	"auth-service/helper"
 	"auth-service/middlewares"
 	"auth-service/models"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -22,7 +23,8 @@ func SetupTenantRoutes(db *gorm.DB) *http.ServeMux {
 		db,
 	}
 	authMiddleware := middlewares.AuthMiddleware{
-		Db: db,
+		Db:      db,
+		JwksURL: fmt.Sprintf("http://localhost:%s/.well-known/jwks.json", config.Config.ServerPort),
 	}
 	middleware := middlewares.ChainMiddleware(
 		authMiddleware.RequireAuth,
@@ -61,11 +63,13 @@ func (t *TenantHandler) create(w http.ResponseWriter, r *http.Request) {
 
 func (t *TenantHandler) update(w http.ResponseWriter, r *http.Request) {
 	var payload dto.UpdateTenantDTO
-	if err := helper.ReadJson(w, r, payload); err != nil {
+	if err := helper.ReadJson(w, r, &payload); err != nil {
 		helper.WriteJsonError(w, http.StatusUnprocessableEntity, err.Error())
+		return
 	}
 	if err := helper.Validator.Struct(payload); err != nil {
 		helper.WriteJsonError(w, http.StatusUnprocessableEntity, err.Error())
+		return
 	}
 	result := t.db.Model(&models.Tenant{}).Where("id =?", r.PathValue("id")).Updates(map[string]interface{}{
 		"email":   payload.Email,
@@ -73,9 +77,11 @@ func (t *TenantHandler) update(w http.ResponseWriter, r *http.Request) {
 	})
 	if result.Error != nil {
 		helper.WriteJsonError(w, http.StatusBadRequest, result.Error.Error())
+		return
 	}
 	helper.WriteJson(w, http.StatusOK, "tenant updated")
 }
+
 func (t *TenantHandler) getAll(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	queryForSearch := q.Get("q")
@@ -144,6 +150,10 @@ func (t *TenantHandler) getOne(w http.ResponseWriter, r *http.Request) {
 	result := t.db.Where("id =?", id).Find(&tenant)
 	if result.Error != nil {
 		helper.WriteJsonError(w, http.StatusBadRequest, result.Error.Error())
+		return
+	}
+	if result.RowsAffected == 0 {
+		helper.WriteJsonError(w, http.StatusNotFound, "Tenant not found")
 		return
 	}
 	helper.WriteJson(w, http.StatusOK, tenant)

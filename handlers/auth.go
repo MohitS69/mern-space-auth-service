@@ -80,7 +80,7 @@ func (u *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 		Password:  string(hash),
 		FirstName: payload.FirstName,
 		LastName:  payload.LastName,
-		Role:      models.UserRole,
+		Role:      models.RoleType(payload.Role),
 	}
 
 	if err := u.db.Create(&user).Error; err != nil {

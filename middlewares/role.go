@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"auth-service/models"
+	"fmt"
 	"net/http"
 	"slices"
 )
@@ -15,6 +16,7 @@ func RequireRole(roles ...models.RoleType) Middleware {
 				return
 			}
 			found := slices.Contains(roles, user.Role)
+            fmt.Println(roles,user.Role)
 			if !found {
 				http.Error(w, "Insufficient permissions", http.StatusForbidden)
 				return

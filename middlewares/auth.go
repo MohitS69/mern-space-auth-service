@@ -32,6 +32,10 @@ func (am *AuthMiddleware) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		jwks, err := jwk.Fetch(ctx,
 			am.JwksURL,
 		)
+		if err != nil {
+			helper.WriteJsonError(w, http.StatusUnauthorized, err.Error())
+			return
+		}
 		key, ok := jwks.Key(0)
 		if !ok {
 			helper.WriteJsonError(w, http.StatusUnauthorized, "change this message")
@@ -68,7 +72,7 @@ func (am *AuthMiddleware) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		err = am.Db.Where("id =?", userID).Find(&user).Error
 		if err != nil {
 			http.Error(w, "User not found", http.StatusUnauthorized)
-            config.Config.Logger.Debugf("User not found in DB with %d userID",userID)
+			config.Config.Logger.Debugf("User not found in DB with %d userID", userID)
 			return
 		}
 

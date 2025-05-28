@@ -24,7 +24,7 @@ func main() {
 		config.Config.Logger.Fatalf("database connection error %v\n", err)
 	}
 	config.Config.Logger.Info("database connected")
-	err = db.AutoMigrate(&models.User{}, &models.RefreshToken{})
+	err = db.AutoMigrate(&models.User{}, &models.RefreshToken{},&models.Tenant{})
 	if err != nil {
 		config.Config.Logger.Fatal("error while running migration :%v", err.Error())
 	}
@@ -36,7 +36,7 @@ func main() {
     authRoutes := handlers.SetupAuthRoutes(db)
     tenantRoutes := handlers.SetupTenantRoutes(db)
     mux.Handle("/auth/",http.StripPrefix("/auth",authRoutes))
-    mux.Handle("/tenants/",http.StripPrefix("/auth",tenantRoutes))
+    mux.Handle("/tenants/",http.StripPrefix("/tenants",tenantRoutes))
 
 	func() {
 		config.Config.Logger.Infof("server is running on port %s", config.Config.ServerPort)
